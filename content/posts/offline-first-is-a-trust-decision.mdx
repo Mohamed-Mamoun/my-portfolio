@@ -1,0 +1,125 @@
+---
+title: Offline-first is a trust decision, not a caching strategy
+description: Why Focus Flow keeps every task, streak, and session in a local database — and what that costs you in sync complexity.
+date: 2026-06-18
+tags: [flutter, architecture, offline-first]
+series: Decisions I actually made
+seriesOrder: 1
+---
+
+A productivity app that shows a spinner when the train enters a tunnel has taught the
+user something. Not "the network is down" — something worse. It has taught them that
+their own data is somewhere else, and that they are a guest in it.
+
+That is the actual argument for offline-first, and it is not a performance argument.
+
+## The default that most apps land on
+
+The path of least resistance in Flutter looks like this:
+
+```dart
+class TaskRepository {
+  final ApiClient _api;
+
+  Future<List<Task>> getTasks() async {
+    final response = await _api.get('/tasks');
+    return response.data.map(Task.fromJson).toList();
+  }
+}
+```
+
+Then a `FutureBuilder`, a loading state, an error state, and you move on. It works. It
+ships. Every screen becomes a small negotiation with the network.
+
+The failure mode isn't that this breaks. It's that it degrades in exactly the moments
+that matter most — on a commute, in a basement office, on hotel wifi. The moments when
+someone actually wanted to check off a task.
+
+<Callout type="note">
+This isn't an argument that every app should be offline-first. A live auction app
+should absolutely refuse to show you stale prices. The question is whether stale data
+is *wrong* or merely *old*, and for a personal task list it is merely old.
+</Callout>
+
+## What I did instead
+
+In Focus Flow, the local database is the source of truth. Not a cache — the source.
+Reads never touch the network:
+
+```dart
+class TaskRepository {
+  final TaskDao _dao;
+  final SyncQueue _queue;
+
+  /// Reads are local. Always. No network in this path at all.
+  Stream<List<Task>> watchTasks() => _dao.watchAll();
+
+  /// Writes land locally first, then enqueue for sync.
+  Future<void> complete(TaskId id) async {
+    await _dao.markComplete(id, at: DateTime.now());
+    await _queue.enqueue(SyncOp.complete(id));
+  }
+}
+```
+
+The UI subscribes to a stream off the local database. Tapping a checkbox writes to disk
+and the stream emits — synchronously, from the user's point of view. There is no
+loading state because there is nothing to load.
+
+The network becomes a background concern: a queue that drains when it can.
+
+## The part nobody puts in the blog post
+
+This is genuinely more work, and the cost is concentrated in one place: **conflict
+resolution**.
+
+The moment the same task can be edited on a phone and a tablet, you need an answer for
+what happens when both edits arrive. The options, roughly in order of how much they'll
+cost you:
+
+| Strategy | Cost | When it's right |
+| --- | --- | --- |
+| Last-write-wins on `updatedAt` | Low | Single-user, single-device-at-a-time |
+| Per-field last-write-wins | Medium | Single-user, multi-device |
+| Operation log + replay | High | Collaborative editing |
+| CRDTs | Very high | Real-time collaboration |
+
+I used per-field last-write-wins. Focus Flow is single-user, so genuine conflicts are
+rare — but "rare" is not "never," and the case that bit me was the streak counter.
+
+Two devices both offline, both completing a task on the same day, both incrementing a
+local streak. Naive field-level merge gives you a streak of 2 for one day of work. The
+fix was to stop storing the streak at all and derive it from the session history, which
+*is* mergeable because sessions are append-only and idempotent by ID.
+
+<Callout type="warning">
+The general lesson: **derived state should be derived, not synced.** Anything you can
+recompute from an append-only log will merge for free. Anything you store as a running
+total will need a conflict strategy of its own.
+</Callout>
+
+## Was it worth it?
+
+For this app, yes — but I want to be precise about why, because "offline-first is
+better" is not a reason.
+
+Focus Flow's entire premise is that it reduces friction at the moment you're trying to
+start a task. A loading spinner at that moment isn't a minor degradation; it's a direct
+hit on the one thing the product claims to do. The cost — a sync queue and one careful
+decision about derived state — bought a guarantee that the core interaction never
+fails.
+
+If I were building something where the data is genuinely shared and genuinely
+contested, I'd have made the opposite call and not felt bad about it.
+
+## What I'd do differently
+
+I hand-rolled the sync queue. It's about 200 lines and I understand every one of them,
+which felt good at the time and mostly still does. But I'd now look harder at whether
+the queue should have been a proper outbox table with explicit state transitions rather
+than the in-memory-with-persistence hybrid I ended up with — debugging a stuck sync
+took longer than it should have, because the queue's state wasn't inspectable from the
+database.
+
+That's the real tell for whether an abstraction is right: not whether it works, but
+whether you can see what it's doing when it doesn't.
