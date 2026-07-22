@@ -4,6 +4,8 @@
  * footer, which exposes the rest of the IA.
  */
 
+import { site } from "#content";
+
 export const primaryNav = [
   { label: "Work", href: "/projects" },
   { label: "Writing", href: "/blog" },
@@ -31,6 +33,8 @@ const nav: readonly { heading: string; links: readonly NavLink[] }[] = [
       { label: "Projects", href: "/projects" },
       { label: "Experience", href: "/experience" },
       { label: "Skills", href: "/skills" },
+      // Static asset, not a route — same as the RSS entry below.
+      { label: "Résumé", href: site.resume },
       { label: "Open Source", href: "/open-source", tier: 2 },
     ],
   },

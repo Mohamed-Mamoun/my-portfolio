@@ -143,6 +143,16 @@ export default function AboutPage() {
                 </span>
               </Link>
             </div>
+            <p className="mt-4 text-body-sm text-tertiary">
+              Prefer the short version?{" "}
+              <a
+                href={site.resume}
+                className="rounded-sm font-medium text-secondary underline decoration-subtle underline-offset-4 transition-colors hover:text-primary hover:decoration-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                Download the résumé
+              </a>{" "}
+              as a PDF.
+            </p>
           </Reveal>
 
           <Stagger as="ul" className="mt-10 flex flex-col">

@@ -1,4 +1,4 @@
-import { projects } from "#content";
+import { projects, site } from "#content";
 import { getPosts, getTags } from "@/lib/content";
 
 export type SearchKind = "page" | "post" | "project" | "tag";
@@ -20,6 +20,7 @@ const PAGES: Omit<SearchDoc, "kind" | "id">[] = [
   { title: "About", description: "Background, values, and how I think about the work.", href: "/about", keywords: "bio story background who" },
   { title: "Experience", description: "Career history and core competencies.", href: "/experience", keywords: "cv resume career jobs work history" },
   { title: "Skills", description: "Competencies, each linked to the work that proves it.", href: "/skills", keywords: "expertise technologies abilities" },
+  { title: "Résumé", description: "One-page career summary, as a PDF.", href: site.resume, keywords: "cv resume download pdf hire" },
   { title: "Contact", description: "Email, response time, and how to reach me.", href: "/contact", keywords: "email hire talk reach get in touch" },
   { title: "Uses", description: "Tools, software, and services I build with.", href: "/uses", keywords: "setup tools gear software stack" },
   { title: "Now", description: "What I'm focused on at the moment.", href: "/now", keywords: "current focus today" },
