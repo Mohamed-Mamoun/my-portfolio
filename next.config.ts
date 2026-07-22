@@ -11,9 +11,6 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
   },
-  experimental: {
-    optimizePackageImports: ["motion"],
-  },
   async headers() {
     return [
       {

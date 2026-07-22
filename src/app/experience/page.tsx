@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { site, experience, competencies } from "#content";
 import { Container, Section } from "@/components/layout/container";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/reveal";
+import { ButtonLink } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Experience",
@@ -21,6 +22,12 @@ export default function ExperiencePage() {
               Four years across e-learning, healthcare, e-commerce, and payments — mostly as the
               person responsible when it broke.
             </p>
+            {/* `external` renders a plain <a>: the PDF is a static asset, not a
+                route, so the client router has nothing to prefetch. */}
+            <ButtonLink href={site.resume} external variant="secondary" size="md" className="mt-7">
+              Download résumé
+              <span className="text-tertiary">PDF</span>
+            </ButtonLink>
           </header>
         </Reveal>
 

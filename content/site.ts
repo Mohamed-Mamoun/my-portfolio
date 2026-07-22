@@ -7,6 +7,27 @@
  * has not yet been sourced — it renders without emphasis until it is.
  */
 
+/**
+ * Canonical origin. Everything downstream — canonicals, sitemap, robots,
+ * RSS guids, JSON-LD @ids, OG image URLs — is built from this, so a wrong
+ * value here is wrong in a dozen places at once.
+ *
+ * Vercel injects VERCEL_PROJECT_PRODUCTION_URL at build time: the stable
+ * production domain, not the per-deploy preview URL. That distinction
+ * matters — canonicals pointing at a preview deployment would tell Google
+ * the real page lives at a URL that rotates every push.
+ *
+ * Set SITE_URL to override once a custom domain is attached.
+ *
+ * Server-only: `site.url` is never imported by a client component, so this
+ * needs no NEXT_PUBLIC_ prefix. Check that before importing it into one.
+ */
+const url =
+  process.env.SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000");
+
 export const site = {
   name: "Mohamed Mamoun",
   shortName: "MM",
@@ -22,7 +43,7 @@ export const site = {
   location: "Cairo, Egypt",
   timezone: "GMT+2",
   availability: "Available for work",
-  url: "https://mohamedmamoun.dev",
+  url,
   avatar: "/images/profile/avatar.webp",
   resume: "/mohamed-mamoun-resume.pdf",
 } as const;
