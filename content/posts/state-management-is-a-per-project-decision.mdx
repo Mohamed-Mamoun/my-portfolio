@@ -1,0 +1,113 @@
+---
+title: I use Bloc, Riverpod, and GetX — and the choice is per project
+description: Four shipped Flutter apps, three different state solutions. The tiebreaker was never which library is best.
+date: 2026-07-02
+tags: [flutter, architecture, state-management]
+series: Decisions I actually made
+seriesOrder: 2
+---
+
+Flutter state management discourse has a shape. Someone posts a comparison table, the
+comments split into camps, and nobody mentions the project. Which is strange, because
+the project is the only variable that matters.
+
+Across four production apps I've shipped with three different solutions. Here's the
+actual reasoning, including where I now think I was wrong.
+
+## Ajeep Education → Bloc
+
+An e-learning platform: dozens of screens, live video lessons, payments, biometric
+auth, and a team that would maintain it after me.
+
+```dart
+class LessonBloc extends Bloc<LessonEvent, LessonState> {
+  LessonBloc(this._repo) : super(const LessonState.initial()) {
+    on<LessonRequested>(_onRequested);
+    on<LessonEnrolled>(_onEnrolled);
+  }
+  // ...
+}
+```
+
+Bloc's verbosity is the feature here. Every state transition is a named event with an
+explicit handler, which means:
+
+- **The state machine is readable without running it.** A new developer can open
+  `LessonBloc` and enumerate every way lessons can change.
+- **Tests need no widgets.** `blocTest` drives events and asserts states. Payment and
+  enrollment logic — the parts where bugs cost money — are covered without a
+  `WidgetTester` anywhere near them.
+
+For a codebase with dozens of screens and multiple maintainers, boilerplate that makes
+transitions explicit is worth paying for. On a five-screen app it would be pure tax.
+
+## Zoon → GetX
+
+An e-commerce app on a tight timeline, built solo.
+
+I'll defend this one, but carefully. GetX let me move fast: reactive state, routing,
+and dependency injection in one package, minimal ceremony.
+
+```dart
+class CartController extends GetxController {
+  final items = <CartItem>[].obs;
+  int get count => items.fold(0, (sum, i) => sum + i.quantity);
+}
+```
+
+For a solo build with a deadline, the velocity was real.
+
+<Callout type="warning">
+**What I'd choose today: Riverpod.** Not because GetX "failed" — Zoon shipped and
+works. But GetX's service locator makes dependencies implicit. `Get.find<CartController>()`
+compiles anywhere, including places that have no business touching a cart, and you
+find out at runtime. Riverpod moves that to compile time for roughly the same
+velocity. The thing I was buying from GetX, Riverpod sells without the trade.
+</Callout>
+
+That's the honest version. The decision was defensible with the information I had, and
+I'd make a different one now.
+
+## Focus Flow → streams from the local database
+
+The most interesting case, because the answer was mostly "less."
+
+Focus Flow is [offline-first](/blog/offline-first-is-a-trust-decision) — the local
+database is the source of truth. Once that's true, a large share of what state
+management usually does disappears. There's no "loading" state to model, no cache
+invalidation, no synchronising a server response into a store.
+
+The database emits a stream. The UI listens. That's most of it.
+
+What's left is genuinely ephemeral UI state — is the timer running, which step is
+expanded — and that lives in the widget that owns it.
+
+<Callout type="note">
+The general principle: **choose your state management after you've chosen your data
+architecture, not before.** A large fraction of state-management complexity is
+compensation for the network being in the read path. Take it out and the requirement
+shrinks.
+</Callout>
+
+## The actual decision procedure
+
+Not a table of features. Four questions:
+
+1. **Who maintains this in a year?** Team → explicit transitions (Bloc). Just me →
+   something lighter.
+2. **Where do bugs cost the most?** Money or data loss → testable-without-widgets.
+3. **Is the network in the read path?** If not, you need much less than you think.
+4. **How many screens share state?** Under five or so, `setState` and a couple of
+   `InheritedWidget`s are a legitimate answer, and reaching for a library is the
+   riskier choice.
+
+Nowhere in there is "which library is best." That question doesn't have an answer,
+which is why it generates so much discussion.
+
+## The thing I'd tell a reviewer
+
+If you're evaluating me on this: I don't think the interesting signal is which
+libraries I've used. It's whether I can say why, and whether I'll tell you which call I
+got wrong.
+
+GetX on Zoon is the one I'd change.
